@@ -205,20 +205,32 @@ class GeneratorCommand extends BaseCommand
                 // Get model data
                 $modelData = Json::decodeFile($modelFile->getRealPath());
 
-                // Create views directory
-                Directory::createIfNotExists(base_path('resources/views/' . strtolower($modelName)));
-
                 $modelHash = md5_file($modelFile->getRealPath());
 
                 // Compile stubs
-                array_push($modelCompilerOutput, $modelCompiler->compile($modelStub, $modelName, $modelData, $scaffolderConfig, $modelHash, $this->extensions));
-                if ($scaffoldApi) array_push($apiModelCompilerOutput, $apiModelCompiler->compile($apiModelStub, $modelName, $modelData, $scaffolderConfig, $modelHash, $this->extensions));
-                array_push($controllerCompilerOutput, $controllerCompiler->compile($controllerStub, $modelName, $modelData, $scaffolderConfig, $modelHash, $this->extensions));
-                if ($scaffoldApi) array_push($apiControllerCompilerOutput, $apiControllerCompiler->compile($apiControllerStub, $modelName, $modelData, $scaffolderConfig, $modelHash, $this->extensions));
-                array_push($migrationCompilerOutput, $migrationCompiler->compile($migrationStub, $modelName, $modelData, $scaffolderConfig, $modelHash, $this->extensions));
-                array_push($viewCompilerOutput, $indexViewCompiler->compile($indexViewStub, $modelName, $modelData, $scaffolderConfig, $modelHash, $this->themeExtension, $this->extensions));
-                array_push($viewCompilerOutput, $createViewCompiler->compile($createViewStub, $modelName, $modelData, $scaffolderConfig, $modelHash, $this->themeExtension, $this->extensions));
-                array_push($viewCompilerOutput, $editViewCompiler->compile($editViewStub, $modelName, $modelData, $scaffolderConfig, $modelHash, $this->themeExtension, $this->extensions));
+                
+                //Skip model from model definition 
+                if (!$modelData->skipModel){
+                    array_push($modelCompilerOutput, $modelCompiler->compile($modelStub, $modelName, $modelData, $scaffolderConfig, $modelHash, $this->extensions));
+                    if ($scaffoldApi) array_push($apiModelCompilerOutput, $apiModelCompiler->compile($apiModelStub, $modelName, $modelData, $scaffolderConfig, $modelHash, $this->extensions));
+                }
+                //Skip controller from model definition 
+                if (!$modelData->skipController){
+                    array_push($controllerCompilerOutput, $controllerCompiler->compile($controllerStub, $modelName, $modelData, $scaffolderConfig, $modelHash, $this->extensions));
+                    if ($scaffoldApi) array_push($apiControllerCompilerOutput, $apiControllerCompiler->compile($apiControllerStub, $modelName, $modelData, $scaffolderConfig, $modelHash, $this->extensions));
+                }
+                //Skip migration from model definition 
+                if (!$modelData->skipMigration){
+                    array_push($migrationCompilerOutput, $migrationCompiler->compile($migrationStub, $modelName, $modelData, $scaffolderConfig, $modelHash, $this->extensions));
+                }
+                //Skip views from model definition 
+                if (!$modelData->skipViews){
+                    // Create views directory
+                    Directory::createIfNotExists(base_path('resources/views/' . strtolower($modelName)));
+                    array_push($viewCompilerOutput, $indexViewCompiler->compile($indexViewStub, $modelName, $modelData, $scaffolderConfig, $modelHash, $this->themeExtension, $this->extensions));
+                    array_push($viewCompilerOutput, $createViewCompiler->compile($createViewStub, $modelName, $modelData, $scaffolderConfig, $modelHash, $this->themeExtension, $this->extensions));
+                    array_push($viewCompilerOutput, $editViewCompiler->compile($editViewStub, $modelName, $modelData, $scaffolderConfig, $modelHash, $this->themeExtension, $this->extensions));
+                }
                 $compiledRoutes .= $routeCompiler->compile($routeStub, $modelName, $modelData, $scaffolderConfig, null, $this->extensions);
                 if ($scaffoldApi) $compiledApiRoutes .= $apiRouteCompiler->compile($apiRouteStub, $modelName, $modelData, $scaffolderConfig, null, $this->extensions);
 
@@ -235,28 +247,35 @@ class GeneratorCommand extends BaseCommand
             // Store compiled routes
             $routeCompiler->compileGroup(File::get($this->stubsDirectory . 'Routes.php'), $compiledRoutes, $scaffolderConfig);
             if ($scaffoldApi) $apiRouteCompiler->compileGroup(File::get($this->stubsDirectory . 'api/Routes.php'), $compiledApiRoutes, $scaffolderConfig);
+            //Skip layouts from app config
+            if (!$scaffolderConfig->skipLayouts) {
+                // Create layouts directory
+                Directory::createIfNotExists(base_path('resources/views/layouts'));
 
-            // Create layouts directory
-            Directory::createIfNotExists(base_path('resources/views/layouts'));
+                // Compile page layout
+                array_push($viewCompilerOutput, $pageLayoutViewCompiler->compile(File::get($this->themeLayouts->getPagePath()), null, null, $scaffolderConfig, null, $this->themeExtension, $this->extensions, ['links' => $sidenavLinks]));
 
-            // Compile page layout
-            array_push($viewCompilerOutput, $pageLayoutViewCompiler->compile(File::get($this->themeLayouts->getPagePath()), null, null, $scaffolderConfig, null, $this->themeExtension, $this->extensions, ['links' => $sidenavLinks]));
+                // Compile create layout
+                array_push($viewCompilerOutput, $createLayoutCompiler->compile(File::get($this->themeLayouts->getCreatePath()), null, null, $scaffolderConfig, null, $this->themeExtension, $this->extensions));
 
-            // Compile create layout
-            array_push($viewCompilerOutput, $createLayoutCompiler->compile(File::get($this->themeLayouts->getCreatePath()), null, null, $scaffolderConfig, null, $this->themeExtension, $this->extensions));
-
-            // Compile edit layout
-            array_push($viewCompilerOutput, $editLayoutCompiler->compile(File::get($this->themeLayouts->getEditPath()), null, null, $scaffolderConfig, null, $this->themeExtension, $this->extensions));
-
-            // Compile dashboard view
-            array_push($viewCompilerOutput, $dashboardViewCompiler->compile(File::get($this->themeViews->getDashboardPath()), null, null, $scaffolderConfig, null, $this->themeExtension, $this->extensions));
-
-            // Compile welcome view
-            array_push($viewCompilerOutput, $welcomeViewCompiler->compile(File::get($this->themeViews->getWelcomePath()), null, null, $scaffolderConfig, null, $this->themeExtension, $this->extensions));
-
-            // Compile login view
-            array_push($viewCompilerOutput, $loginViewCompiler->compile(File::get($this->themeViews->getLoginPath()), null, null, $scaffolderConfig, null, $this->themeExtension, $this->extensions));
-
+                // Compile edit layout
+                array_push($viewCompilerOutput, $editLayoutCompiler->compile(File::get($this->themeLayouts->getEditPath()), null, null, $scaffolderConfig, null, $this->themeExtension, $this->extensions));
+            }
+            //Skip dashboard from app config
+            if (!$scaffolderConfig->skipDashboardPage){
+                // Compile dashboard view
+                array_push($viewCompilerOutput, $dashboardViewCompiler->compile(File::get($this->themeViews->getDashboardPath()), null, null, $scaffolderConfig, null, $this->themeExtension, $this->extensions));
+            }
+            //Skip welcome page from app config
+            if (!$scaffolderConfig->skipWelcomePage){
+                // Compile welcome view
+                array_push($viewCompilerOutput, $welcomeViewCompiler->compile(File::get($this->themeViews->getWelcomePath()), null, null, $scaffolderConfig, null, $this->themeExtension, $this->extensions));
+            }
+            //Skip login page from app config
+            if (!$scaffolderConfig->skipLoginPage){
+                // Compile login view
+                array_push($viewCompilerOutput, $loginViewCompiler->compile(File::get($this->themeViews->getLoginPath()), null, null, $scaffolderConfig, null, $this->themeExtension, $this->extensions));
+            }
             // Summary
             $this->comment('- Files created');
 
