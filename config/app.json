@@ -27,8 +27,8 @@
     "api": {
         "domain": "cool.app.domain"
     },
-    "skipLayouts": true,
-    "skipDashboardPage": true,
+    "skipLayouts": false,
+    "skipDashboardPage": false,
     "skipWelcomePage": false,
-    "skipLoginPage": true
+    "skipLoginPage": false
 }
